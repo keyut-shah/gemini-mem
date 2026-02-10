@@ -1,0 +1,28 @@
+{
+  "name": "antigravity-memory",
+  "version": "0.1.0",
+  "description": "Local-first memory layer for Antigravity IDE (MVP)",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "ts-node src/cli/index.ts",
+    "api": "ts-node src/api/server.ts",
+    "lint": "echo 'no lint configured'",
+    "test": "echo 'tests pending'"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.11.0",
+    "better-sqlite3": "^9.4.5",
+    "commander": "^12.1.0",
+    "dotenv": "^16.4.5",
+    "uuid": "^11.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
