@@ -5,17 +5,19 @@ import fs from 'fs';
 import path from 'path';
 import { argv, exit } from 'process';
 
-// Args
+// Args: CLI flags take priority, then env vars, then defaults
 const args = parseArgs(argv.slice(2));
-const projectPath = path.resolve(args.project || '');
-const apiBase = args.api || 'http://localhost:37777';
-const sessionIdArg = args.session;
-const sizeLimit = Number(args.sizeLimit || 200_000); // 200 KB
-const intervalMs = Number(args.interval || 2000); // polling interval
-const captureInitial = args.captureInitial === '1';
+const projectPath = path.resolve(args.project || process.env.WATCH_PATH || '');
+const apiBase = args.api || process.env.API_BASE || 'http://localhost:37777';
+const sessionIdArg = args.session || process.env.SESSION_ID || undefined;
+const sizeLimit = Number(args.sizeLimit || process.env.SIZE_LIMIT || 200_000); // 200 KB
+const intervalMs = Number(args.interval || process.env.POLL_INTERVAL || 2000); // polling interval
+const captureInitial = (args.captureInitial || process.env.CAPTURE_INITIAL) === '1';
 
-if (!projectPath) {
-  console.error('Usage: npm run watch -- --project /path --session <id?> [--api http://localhost:37777]');
+if (!projectPath || projectPath === path.resolve('')) {
+  console.error('Usage:');
+  console.error('  npm run watch -- --project /path --session <id?> [--api http://localhost:37777]');
+  console.error('  WATCH_PATH=/path SESSION_ID=<id?> npm run watch');
   exit(1);
 }
 

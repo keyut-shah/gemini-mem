@@ -35,6 +35,18 @@ export interface Observation {
   observation_type?: string;
 }
 
+export type NoteSource = 'manual' | 'clipboard' | 'bridge';
+
+export interface Note {
+  id: string;
+  session_id: string;
+  user_prompt?: string;
+  ai_response?: string;
+  annotation?: string;
+  source: NoteSource;
+  timestamp: number;
+}
+
 export interface SearchResult extends Session {
   rank?: number;
   matched_text?: string;
@@ -170,6 +182,38 @@ export class MemoryDatabase {
     ).all(sessionId) as Observation[];
   }
 
+  saveNote(
+    sessionId: string,
+    userPrompt?: string,
+    aiResponse?: string,
+    annotation?: string,
+    source: NoteSource = 'manual'
+  ): Note {
+    const note: Note = {
+      id: `note_${uuidv4()}`,
+      session_id: sessionId,
+      user_prompt: userPrompt,
+      ai_response: aiResponse,
+      annotation,
+      source,
+      timestamp: Date.now()
+    };
+
+    this.db.prepare(`
+      INSERT INTO notes (id, session_id, user_prompt, ai_response, annotation, source, timestamp)
+      VALUES (@id, @session_id, @user_prompt, @ai_response, @annotation, @source, @timestamp)
+    `).run(note);
+
+    console.log('[DB] Saved note', { noteId: note.id, sessionId, source });
+    return note;
+  }
+
+  getNotesForSession(sessionId: string): Note[] {
+    return this.db.prepare(
+      `SELECT * FROM notes WHERE session_id = ? ORDER BY timestamp ASC`
+    ).all(sessionId) as Note[];
+  }
+
   getRecentSessions(projectPath: string, limit = 5): Session[] {
     return this.db.prepare(
       `SELECT * FROM sessions WHERE project_path = ? AND status != 'active' ORDER BY created_at DESC LIMIT ?`
@@ -177,13 +221,17 @@ export class MemoryDatabase {
   }
 
   searchSessions(projectPath: string, query: string, limit = 5): SearchResult[] {
+    const searchQuery = this.buildSearchQuery(query);
+    if (!searchQuery) return [];
+
     const results = this.db.prepare(
-      `SELECT s.*, highlight(sessions_fts, 1, '<mark>', '</mark>') AS matched_text, rank
-       FROM sessions s
-       JOIN sessions_fts fts ON s.id = fts.session_id
-       WHERE s.project_path = ? AND sessions_fts MATCH ?
-       ORDER BY rank LIMIT ?`
-    ).all(projectPath, this.buildSearchQuery(query), limit) as SearchResult[];
+      `SELECT s.*
+       FROM sessions_fts fts
+       JOIN sessions s ON s.id = fts.session_id
+       WHERE fts.sessions_fts MATCH ?
+         AND s.project_path = ?
+       ORDER BY fts.rank LIMIT ?`
+    ).all(searchQuery, projectPath, limit) as SearchResult[];
     return results;
   }
 
@@ -234,17 +282,30 @@ export class MemoryDatabase {
       CREATE VIRTUAL TABLE IF NOT EXISTS sessions_fts USING fts5(
         session_id UNINDEXED,
         user_prompt,
-        summary,
-        content='sessions',
-        content_rowid='rowid'
+        summary
+      );
+
+      CREATE TABLE IF NOT EXISTS notes (
+        id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+        user_prompt TEXT,
+        ai_response TEXT,
+        annotation TEXT,
+        source TEXT DEFAULT 'manual',
+        timestamp INTEGER NOT NULL
       );
 
       CREATE VIRTUAL TABLE IF NOT EXISTS observations_fts USING fts5(
         observation_id UNINDEXED,
         function_name,
-        compressed_data,
-        content='observations',
-        content_rowid='rowid'
+        compressed_data
+      );
+
+      CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(
+        note_id UNINDEXED,
+        user_prompt,
+        ai_response,
+        annotation
       );
 
       CREATE TRIGGER IF NOT EXISTS sessions_fts_insert AFTER INSERT ON sessions BEGIN
@@ -255,6 +316,11 @@ export class MemoryDatabase {
       CREATE TRIGGER IF NOT EXISTS observations_fts_insert AFTER INSERT ON observations BEGIN
         INSERT INTO observations_fts(observation_id, function_name, compressed_data)
         VALUES (new.id, new.function_name, new.compressed_data);
+      END;
+
+      CREATE TRIGGER IF NOT EXISTS notes_fts_insert AFTER INSERT ON notes BEGIN
+        INSERT INTO notes_fts(note_id, user_prompt, ai_response, annotation)
+        VALUES (new.id, new.user_prompt, new.ai_response, new.annotation);
       END;
     `;
 

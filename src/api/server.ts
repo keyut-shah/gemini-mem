@@ -137,6 +137,35 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  if (req.method === 'POST' && url.pathname === '/note') {
+    const { sessionId, userPrompt, aiResponse, annotation, source } = await parseBody(req);
+    if (!sessionId) return send(res, 400, { error: 'sessionId required' });
+    if (!userPrompt && !aiResponse && !annotation) {
+      return send(res, 400, { error: 'at least one of userPrompt, aiResponse, or annotation required' });
+    }
+    const session = db.getSession(sessionId);
+    if (!session) return send(res, 400, { error: 'unknown sessionId' });
+    try {
+      const note = db.saveNote(sessionId, userPrompt, aiResponse, annotation, source || 'manual');
+      return send(res, 200, { noteId: note.id, note });
+    } catch (err: any) {
+      console.error(err);
+      return send(res, 500, { error: err.message || 'saveNote failed' });
+    }
+  }
+
+  if (req.method === 'GET' && url.pathname === '/notes') {
+    const sessionId = url.searchParams.get('sessionId');
+    if (!sessionId) return send(res, 400, { error: 'sessionId query param required' });
+    try {
+      const notes = db.getNotesForSession(sessionId);
+      return send(res, 200, { notes, count: notes.length });
+    } catch (err: any) {
+      console.error(err);
+      return send(res, 500, { error: err.message || 'getNotesForSession failed' });
+    }
+  }
+
   if (req.method === 'POST' && url.pathname === '/compress') {
     const { observationId } = await parseBody(req);
     if (!observationId) return send(res, 400, { error: 'observationId required' });

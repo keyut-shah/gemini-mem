@@ -56,10 +56,27 @@ export class GeminiClient {
         responseLength: text.length
       });
       return text;
-    } catch (err) {
-      console.error('[Gemini] compressObservation error', err);
+    } catch (err: any) {
+      console.error('[Gemini] compressObservation error:', err?.message || err);
+      // Retry once after delay for rate limiting (429)
+      if (err?.status === 429 || err?.message?.includes('429') || err?.message?.includes('quota') || err?.message?.includes('RESOURCE_EXHAUSTED')) {
+        console.log('[Gemini] Rate limited — waiting 60s before retry...');
+        await new Promise(r => setTimeout(r, 60_000));
+        try {
+          const model = this.client.getGenerativeModel({ model: this.modelName });
+          const retryResult = await model.generateContent({
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.2, maxOutputTokens: 400 }
+          });
+          const retryText = retryResult.response.text();
+          console.log('[Gemini] compressObservation RETRY succeeded', { responseLength: retryText.length });
+          return retryText;
+        } catch (retryErr: any) {
+          console.error('[Gemini] compressObservation RETRY also failed:', retryErr?.message || retryErr);
+        }
+      }
       if (process.env.MOCK_GEMINI_FALLBACK !== '0') {
-        console.log('[Gemini] compressObservation falling back to MOCK due to error');
+        console.warn('[Gemini] ⚠️ FALLING BACK TO MOCK — real API failed. Summary quality will be poor.');
         return this.mockCompress(functionName, functionArgs, functionResult);
       }
       throw err;
@@ -91,10 +108,27 @@ export class GeminiClient {
         responseLength: text.length
       });
       return text;
-    } catch (err) {
-      console.error('[Gemini] summarizeSession error', err);
+    } catch (err: any) {
+      console.error('[Gemini] summarizeSession error:', err?.message || err);
+      // Retry once after delay for rate limiting (429)
+      if (err?.status === 429 || err?.message?.includes('429') || err?.message?.includes('quota') || err?.message?.includes('RESOURCE_EXHAUSTED')) {
+        console.log('[Gemini] Rate limited — waiting 60s before retry...');
+        await new Promise(r => setTimeout(r, 60_000));
+        try {
+          const model = this.client.getGenerativeModel({ model: this.modelName });
+          const retryResult = await model.generateContent({
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.3, maxOutputTokens: 800 }
+          });
+          const retryText = retryResult.response.text();
+          console.log('[Gemini] summarizeSession RETRY succeeded', { responseLength: retryText.length });
+          return retryText;
+        } catch (retryErr: any) {
+          console.error('[Gemini] summarizeSession RETRY also failed:', retryErr?.message || retryErr);
+        }
+      }
       if (process.env.MOCK_GEMINI_FALLBACK !== '0') {
-        console.log('[Gemini] summarizeSession falling back to MOCK due to error');
+        console.warn('[Gemini] ⚠️ FALLING BACK TO MOCK — real API failed. Summary quality will be poor.');
         return this.mockSummarize(userPrompt, observations);
       }
       throw err;
