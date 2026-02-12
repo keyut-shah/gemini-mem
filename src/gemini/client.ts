@@ -14,7 +14,7 @@ export class GeminiClient {
   constructor(private apiKey: string = process.env.GEMINI_API_KEY || '') {
     this.mock = process.env.MOCK_GEMINI === '1';
     if (this.mock) {
-      console.log('[Gemini] MOCK_GEMINI=1 - GeminiClient will NOT call real API');
+      console.error('[Gemini] MOCK_GEMINI=1 - GeminiClient will NOT call real API');
     }
 
     if (!this.mock && !apiKey) {
@@ -24,7 +24,7 @@ export class GeminiClient {
     this.client = this.mock ? ({} as GoogleGenerativeAI) : new GoogleGenerativeAI(apiKey);
     // Default model; can be overridden with GEMINI_MODEL.
     this.modelName = process.env.GEMINI_MODEL || 'gemini-pro';
-    console.log('[Gemini] Client initialized', {
+    console.error('[Gemini] Client initialized', {
       mock: this.mock,
       model: this.modelName
     });
@@ -32,12 +32,12 @@ export class GeminiClient {
 
   async compressObservation({ functionName, functionArgs = '', functionResult = '' }: CompressInput): Promise<string> {
     if (this.mock) {
-      console.log('[Gemini] compressObservation MOCK mode - returning fake data');
+      console.error('[Gemini] compressObservation MOCK mode - returning fake data');
       return this.mockCompress(functionName, functionArgs, functionResult);
     }
 
     const prompt = this.buildCompressionPrompt(functionName, functionArgs, functionResult);
-    console.log('[Gemini] compressObservation calling real API...', {
+    console.error('[Gemini] compressObservation calling real API...', {
       model: this.modelName,
       functionName,
       argsLength: functionArgs?.length ?? 0,
@@ -52,7 +52,7 @@ export class GeminiClient {
         generationConfig: { temperature: 0.2, maxOutputTokens: 400 }
       });
       const text = result.response.text();
-      console.log('[Gemini] compressObservation response received', {
+      console.error('[Gemini] compressObservation response received', {
         responseLength: text.length
       });
       return text;
@@ -60,7 +60,7 @@ export class GeminiClient {
       console.error('[Gemini] compressObservation error:', err?.message || err);
       // Retry once after delay for rate limiting (429)
       if (err?.status === 429 || err?.message?.includes('429') || err?.message?.includes('quota') || err?.message?.includes('RESOURCE_EXHAUSTED')) {
-        console.log('[Gemini] Rate limited — waiting 60s before retry...');
+        console.error('[Gemini] Rate limited — waiting 60s before retry...');
         await new Promise(r => setTimeout(r, 60_000));
         try {
           const model = this.client.getGenerativeModel({ model: this.modelName });
@@ -69,7 +69,7 @@ export class GeminiClient {
             generationConfig: { temperature: 0.2, maxOutputTokens: 400 }
           });
           const retryText = retryResult.response.text();
-          console.log('[Gemini] compressObservation RETRY succeeded', { responseLength: retryText.length });
+          console.error('[Gemini] compressObservation RETRY succeeded', { responseLength: retryText.length });
           return retryText;
         } catch (retryErr: any) {
           console.error('[Gemini] compressObservation RETRY also failed:', retryErr?.message || retryErr);
@@ -85,12 +85,12 @@ export class GeminiClient {
 
   async summarizeSession(userPrompt: string, observations: string[]): Promise<string> {
     if (this.mock) {
-      console.log('[Gemini] summarizeSession MOCK mode - returning fake data');
+      console.error('[Gemini] summarizeSession MOCK mode - returning fake data');
       return this.mockSummarize(userPrompt, observations);
     }
 
     const prompt = this.buildSummaryPrompt(userPrompt, observations);
-    console.log('[Gemini] summarizeSession calling real API...', {
+    console.error('[Gemini] summarizeSession calling real API...', {
       model: this.modelName,
       userPromptLength: userPrompt.length,
       observationsCount: observations.length,
@@ -104,7 +104,7 @@ export class GeminiClient {
         generationConfig: { temperature: 0.3, maxOutputTokens: 800 }
       });
       const text = result.response.text();
-      console.log('[Gemini] summarizeSession response received', {
+      console.error('[Gemini] summarizeSession response received', {
         responseLength: text.length
       });
       return text;
@@ -112,7 +112,7 @@ export class GeminiClient {
       console.error('[Gemini] summarizeSession error:', err?.message || err);
       // Retry once after delay for rate limiting (429)
       if (err?.status === 429 || err?.message?.includes('429') || err?.message?.includes('quota') || err?.message?.includes('RESOURCE_EXHAUSTED')) {
-        console.log('[Gemini] Rate limited — waiting 60s before retry...');
+        console.error('[Gemini] Rate limited — waiting 60s before retry...');
         await new Promise(r => setTimeout(r, 60_000));
         try {
           const model = this.client.getGenerativeModel({ model: this.modelName });
@@ -121,7 +121,7 @@ export class GeminiClient {
             generationConfig: { temperature: 0.3, maxOutputTokens: 800 }
           });
           const retryText = retryResult.response.text();
-          console.log('[Gemini] summarizeSession RETRY succeeded', { responseLength: retryText.length });
+          console.error('[Gemini] summarizeSession RETRY succeeded', { responseLength: retryText.length });
           return retryText;
         } catch (retryErr: any) {
           console.error('[Gemini] summarizeSession RETRY also failed:', retryErr?.message || retryErr);

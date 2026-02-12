@@ -12,29 +12,46 @@ export class SessionSummarizer {
     if (!session) throw new Error(`Session not found: ${sessionId}`);
 
     const observations = this.db.getObservationsForSession(sessionId);
-    console.log('[Summarizer] Session', sessionId, {
+    console.error('[Summarizer] Session', sessionId, {
       totalObservations: observations.length
     });
 
     const compressed = observations.filter((o) => o.status === 'compressed' && o.compressed_data);
-    console.log('[Summarizer] Compressed observations', {
+    console.error('[Summarizer] Compressed observations', {
       compressedCount: compressed.length
     });
 
-    if (compressed.length === 0) {
-      console.warn('[Summarizer] No compressed observations yet for session', sessionId);
-      const fallback = `Session started with intent: "${session.user_prompt || 'Unknown'}". No compressed observations are available yet.`;
+    // Gather notes as additional context (or fallback if no observations)
+    const notes = this.db.getNotesForSession(sessionId);
+    console.error('[Summarizer] Notes found', { notesCount: notes.length });
+
+    if (compressed.length === 0 && notes.length === 0) {
+      console.warn('[Summarizer] No observations or notes for session', sessionId);
+      const fallback = `Session started with intent: "${session.user_prompt || 'Unknown'}". No observations or notes were recorded.`;
+      this.db.endSession(sessionId, fallback, 'summarized');
       return fallback;
     }
 
+    // Build texts from compressed observations + notes
     const compressedTexts = compressed.map((o) => o.compressed_data as string);
-    console.log('[Summarizer] Building summary with compressed texts', {
+
+    // Add notes as context (these capture prompt/response pairs)
+    for (const note of notes) {
+      const parts: string[] = [];
+      if (note.user_prompt) parts.push(`User asked: ${note.user_prompt}`);
+      if (note.ai_response) parts.push(`AI did: ${note.ai_response}`);
+      if (note.annotation) parts.push(`Note: ${note.annotation}`);
+      if (parts.length > 0) {
+        compressedTexts.push(parts.join('. '));
+      }
+    }
+    console.error('[Summarizer] Building summary with compressed texts', {
       snippets: compressedTexts.length
     });
 
     const userPrompt = session.user_prompt || 'Coding session';
     let summary = await this.gemini.summarizeSession(userPrompt, compressedTexts);
-    console.log('[Summarizer] Initial summary', {
+    console.error('[Summarizer] Initial summary', {
       sessionId,
       summaryLength: summary.length
     });
@@ -52,7 +69,7 @@ export class SessionSummarizer {
         `${userPrompt} (IMPORTANT: provide a detailed, comprehensive summary — the previous attempt was too brief)`,
         compressedTexts
       );
-      console.log('[Summarizer] Retry result', {
+      console.error('[Summarizer] Retry result', {
         attempt: retries,
         summaryLength: summary.length
       });
@@ -63,7 +80,7 @@ export class SessionSummarizer {
       summary = this.enrichShortSummary(summary, session.user_prompt, compressedTexts);
     }
 
-    console.log('[Summarizer] Final summary', {
+    console.error('[Summarizer] Final summary', {
       sessionId,
       summaryLength: summary.length,
       retries

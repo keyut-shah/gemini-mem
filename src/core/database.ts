@@ -160,7 +160,7 @@ export class MemoryDatabase {
        WHERE id = ?`
     ).run(compressedData, originalTokens, compressedTokens, tokensSaved, observationId);
 
-    console.log('[DB] Marked observation as compressed', {
+    console.error('[DB] Marked observation as compressed', {
       observationId,
       originalTokens,
       compressedTokens,
@@ -204,7 +204,7 @@ export class MemoryDatabase {
       VALUES (@id, @session_id, @user_prompt, @ai_response, @annotation, @source, @timestamp)
     `).run(note);
 
-    console.log('[DB] Saved note', { noteId: note.id, sessionId, source });
+    console.error('[DB] Saved note', { noteId: note.id, sessionId, source });
     return note;
   }
 
