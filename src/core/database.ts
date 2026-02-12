@@ -131,11 +131,29 @@ export class MemoryDatabase {
     ).run(JSON.stringify(result), Date.now(), observationId);
   }
 
-  markObservationCompressed(observationId: string, compressedData: string, originalTokens: number, compressedTokens: number) {
+  markObservationCompressed(
+    observationId: string,
+    compressedData: string,
+    originalTokens: number,
+    compressedTokens: number
+  ) {
     const tokensSaved = Math.max(originalTokens - compressedTokens, 0);
     this.db.prepare(
-      `UPDATE observations SET compressed_data = ?, original_tokens = ?, compressed_tokens = ?, tokens_saved = ?, status = 'compressed' WHERE id = ?`
+      `UPDATE observations
+       SET compressed_data = ?,
+           original_tokens = ?,
+           compressed_tokens = ?,
+           tokens_saved = ?,
+           status = 'compressed'
+       WHERE id = ?`
     ).run(compressedData, originalTokens, compressedTokens, tokensSaved, observationId);
+
+    console.log('[DB] Marked observation as compressed', {
+      observationId,
+      originalTokens,
+      compressedTokens,
+      tokensSaved
+    });
   }
 
   getSession(sessionId: string): Session | undefined {

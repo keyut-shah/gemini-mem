@@ -24,33 +24,51 @@ function estimateTokens(text: string): number {
 }
 
 async function processQueue() {
+  console.log(`[Queue] Check - processing=${processing}, length=${queue.length}`);
+  
   if (processing || queue.length === 0) return;
+  
   processing = true;
   const job = queue.shift();
+  
+  console.log(`[Queue] Processing observation: ${job?.observationId}`);
+  
   if (!job) {
     processing = false;
     return;
   }
+  
   try {
     const obs = db.getObservation(job.observationId);
-    if (!obs) throw new Error('observation not found');
+    if (!obs) {
+      console.error(`[Queue] Observation not found: ${job.observationId}`);
+      throw new Error('observation not found');
+    }
+    
+    console.log(`[Queue] Found observation: ${obs.id}, calling Gemini...`);
+    
     const compressed = await gemini.compressObservation({
       functionName: obs.function_name,
       functionArgs: obs.function_args,
       functionResult: obs.function_result
     });
+    
+    console.log(`[Queue] Compressed (${compressed.length} chars): ${compressed.substring(0, 100)}...`);
+    
     const originalTokens = estimateTokens(`${obs.function_args || ''}${obs.function_result || ''}`);
     const compressedTokens = estimateTokens(compressed);
+    
     db.markObservationCompressed(obs.id, compressed, originalTokens, compressedTokens);
+    
+    console.log(`[Queue] ✅ Saved compression for ${obs.id}`);
   } catch (err) {
-    console.error('queue error', err);
+    console.error('[Queue] Error:', err);
   } finally {
     processing = false;
   }
 }
 
-setInterval(processQueue, 500);
-
+setInterval(processQueue, 1000);
 function send(res: http.ServerResponse, status: number, body: any, isText = false) {
   const data = isText ? body : JSON.stringify(body);
   res.writeHead(status, {

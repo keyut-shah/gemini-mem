@@ -13,28 +13,53 @@ export class GeminiClient {
 
   constructor(private apiKey: string = process.env.GEMINI_API_KEY || '') {
     this.mock = process.env.MOCK_GEMINI === '1';
+    if (this.mock) {
+      console.log('[Gemini] MOCK_GEMINI=1 - GeminiClient will NOT call real API');
+    }
+
     if (!this.mock && !apiKey) {
       throw new Error('GEMINI_API_KEY not set');
     }
+
     this.client = this.mock ? ({} as GoogleGenerativeAI) : new GoogleGenerativeAI(apiKey);
-    // Use -latest alias by default; allow override with GEMINI_MODEL to match available endpoints.
-    this.modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    // Default model; can be overridden with GEMINI_MODEL.
+    this.modelName = process.env.GEMINI_MODEL || 'gemini-pro';
+    console.log('[Gemini] Client initialized', {
+      mock: this.mock,
+      model: this.modelName
+    });
   }
 
   async compressObservation({ functionName, functionArgs = '', functionResult = '' }: CompressInput): Promise<string> {
     if (this.mock) {
+      console.log('[Gemini] compressObservation MOCK mode - returning fake data');
       return this.mockCompress(functionName, functionArgs, functionResult);
     }
+
+    const prompt = this.buildCompressionPrompt(functionName, functionArgs, functionResult);
+    console.log('[Gemini] compressObservation calling real API...', {
+      model: this.modelName,
+      functionName,
+      argsLength: functionArgs?.length ?? 0,
+      resultLength: functionResult?.length ?? 0,
+      promptLength: prompt.length
+    });
+
     try {
       const model = this.client.getGenerativeModel({ model: this.modelName });
-      const prompt = this.buildCompressionPrompt(functionName, functionArgs, functionResult);
       const result = await model.generateContent({
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.2, maxOutputTokens: 200 }
+        generationConfig: { temperature: 0.2, maxOutputTokens: 400 }
       });
-      return result.response.text();
+      const text = result.response.text();
+      console.log('[Gemini] compressObservation response received', {
+        responseLength: text.length
+      });
+      return text;
     } catch (err) {
+      console.error('[Gemini] compressObservation error', err);
       if (process.env.MOCK_GEMINI_FALLBACK !== '0') {
+        console.log('[Gemini] compressObservation falling back to MOCK due to error');
         return this.mockCompress(functionName, functionArgs, functionResult);
       }
       throw err;
@@ -43,18 +68,33 @@ export class GeminiClient {
 
   async summarizeSession(userPrompt: string, observations: string[]): Promise<string> {
     if (this.mock) {
+      console.log('[Gemini] summarizeSession MOCK mode - returning fake data');
       return this.mockSummarize(userPrompt, observations);
     }
+
+    const prompt = this.buildSummaryPrompt(userPrompt, observations);
+    console.log('[Gemini] summarizeSession calling real API...', {
+      model: this.modelName,
+      userPromptLength: userPrompt.length,
+      observationsCount: observations.length,
+      promptLength: prompt.length
+    });
+
     try {
       const model = this.client.getGenerativeModel({ model: this.modelName });
-      const prompt = this.buildSummaryPrompt(userPrompt, observations);
       const result = await model.generateContent({
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.3, maxOutputTokens: 350 }
+        generationConfig: { temperature: 0.3, maxOutputTokens: 800 }
       });
-      return result.response.text();
+      const text = result.response.text();
+      console.log('[Gemini] summarizeSession response received', {
+        responseLength: text.length
+      });
+      return text;
     } catch (err) {
+      console.error('[Gemini] summarizeSession error', err);
       if (process.env.MOCK_GEMINI_FALLBACK !== '0') {
+        console.log('[Gemini] summarizeSession falling back to MOCK due to error');
         return this.mockSummarize(userPrompt, observations);
       }
       throw err;
@@ -63,23 +103,41 @@ export class GeminiClient {
 
   private buildCompressionPrompt(fn: string, args: string, res: string): string {
     return [
-      'Summarize this coding action in under 120 tokens:',
+      'Summarize this coding action concisely but thoroughly (150-250 tokens):',
       `Function: ${fn}`,
-      `Args: ${args?.slice(0, 1500)}`,
-      `Result: ${res?.slice(0, 1500)}`,
-      'Include: what changed, key files, why it matters.',
-      'Skip boilerplate.'
+      `Args: ${args?.slice(0, 2000)}`,
+      `Result: ${res?.slice(0, 2000)}`,
+      '',
+      'Your summary MUST include:',
+      '- What specific files/components were affected',
+      '- What changed (additions, modifications, deletions, refactors)',
+      '- Why it matters (bug fix, new feature, config change, dependency update)',
+      '- Any key decisions or trade-offs visible in the change',
+      '',
+      'Write in dense, informative prose. Skip boilerplate and filler.'
     ].join('\n');
   }
 
   private buildSummaryPrompt(userPrompt: string, observations: string[]): string {
     const lines = observations.map((obs, i) => `${i + 1}. ${obs}`).join('\n');
     return [
-      'Summarize the session in 3-4 sentences (no bullets).',
+      'You are summarizing a coding session for a developer memory system.',
+      'The summary will be stored and used to restore context in future sessions.',
+      '',
       `User goal: ${userPrompt}`,
-      'Actions:',
+      '',
+      'Actions taken during the session:',
       lines,
-      'Cover accomplishments, key files, decisions, and learnings.'
+      '',
+      'Write a detailed summary (6-10 sentences, ~200-400 words) covering:',
+      '1. **What was accomplished**: The main outcomes and deliverables.',
+      '2. **Key files and components**: Specific files modified/created and their roles.',
+      '3. **Technical decisions**: Architecture choices, patterns used, trade-offs made.',
+      '4. **Current state**: What works now, what was left incomplete or needs follow-up.',
+      '5. **Learnings and gotchas**: Bugs encountered, workarounds applied, insights gained.',
+      '',
+      'Write in clear, dense prose (not bullets). This summary must be useful enough',
+      'that a developer reading it cold can understand what happened and continue the work.'
     ].join('\n');
   }
 
