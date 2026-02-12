@@ -1,22 +1,41 @@
 {
   "name": "antigravity-memory",
   "version": "0.1.0",
-  "description": "Local-first memory layer for Antigravity IDE (MVP)",
+  "description": "Persistent memory layer for AI coding tools — never lose context across sessions",
   "license": "MIT",
+  "bin": {
+    "antigravity-mem": "./dist/cli/index.js"
+  },
+  "main": "dist/cli/index.js",
+  "files": [
+    "dist/**/*"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "ts-node src/cli/index.ts",
-    "api": "ts-node src/api/server.ts",
-    "watch": "ts-node src/bridge/watch.ts",
-    "lint": "echo 'no lint configured'",
+    "init": "ts-node src/cli/index.ts init",
+    "mcp": "ts-node src/mcp/server.ts",
+    "prepublishOnly": "npm run build",
     "test": "echo 'tests pending'"
   },
+  "keywords": [
+    "antigravity",
+    "gemini",
+    "memory",
+    "context",
+    "mcp",
+    "ai",
+    "coding",
+    "ide"
+  ],
   "dependencies": {
     "@google/generative-ai": "^0.11.0",
+    "@modelcontextprotocol/sdk": "^1.26.0",
     "better-sqlite3": "^9.4.5",
     "commander": "^12.1.0",
     "dotenv": "^16.4.5",
-    "uuid": "^11.0.3"
+    "uuid": "^11.0.3",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^22.7.4",

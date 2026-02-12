@@ -1,2 +1,15 @@
 /node_modules
 .env
+
+# Local database and journal files
+data/*.db
+data/*.db-shm
+data/*.db-wal
+
+# OS / editor junk
+.DS_Store
+*.log
+
+# Build artifacts (if you add a build step later)
+dist
+coverage
