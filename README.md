@@ -2,6 +2,17 @@
 
 > Persistent memory layer for Antigravity IDE — your AI never forgets what you built.
 
+**This is a CLI tool, not a library.** Do not add it to your project's `package.json`. Install it globally:
+
+```bash
+npm install -g antigravity-memory
+antigravity-mem init
+```
+
+That's it — 2 commands. [See Quick Start for details.](#quick-start)
+
+---
+
 Inspired by [Claude-Mem](https://github.com/thedotmack/claude-mem) ([docs](https://docs.claude-mem.ai/introduction)), which brings persistent memory to Claude Code. We asked: **what if Antigravity IDE users had the same superpower?** Claude-Mem works through Claude Code's lifecycle hooks — Antigravity doesn't have those yet, so we built an MCP-based approach that gives Gemini the same long-term memory through tool calls.
 
 ## The Problem
