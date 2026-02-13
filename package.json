@@ -2,7 +2,16 @@
   "name": "antigravity-memory",
   "version": "0.1.0",
   "description": "Persistent memory layer for AI coding tools — never lose context across sessions",
+  "author": "Keyut Shah",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/keyut-shah/gemini-mem.git"
+  },
+  "homepage": "https://github.com/keyut-shah/gemini-mem#readme",
+  "bugs": {
+    "url": "https://github.com/keyut-shah/gemini-mem/issues"
+  },
   "bin": {
     "antigravity-mem": "./dist/cli/index.js",
     "antigravity-memory": "./dist/cli/index.js"
