@@ -4,7 +4,8 @@
   "description": "Persistent memory layer for AI coding tools — never lose context across sessions",
   "license": "MIT",
   "bin": {
-    "antigravity-mem": "./dist/cli/index.js"
+    "antigravity-mem": "./dist/cli/index.js",
+    "antigravity-memory": "./dist/cli/index.js"
   },
   "main": "dist/cli/index.js",
   "files": [

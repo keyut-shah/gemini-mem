@@ -313,6 +313,12 @@ export class MemoryDatabase {
         VALUES (new.id, new.user_prompt, new.summary);
       END;
 
+      CREATE TRIGGER IF NOT EXISTS sessions_fts_update AFTER UPDATE OF summary ON sessions BEGIN
+        DELETE FROM sessions_fts WHERE session_id = old.id;
+        INSERT INTO sessions_fts(session_id, user_prompt, summary)
+        VALUES (new.id, new.user_prompt, new.summary);
+      END;
+
       CREATE TRIGGER IF NOT EXISTS observations_fts_insert AFTER INSERT ON observations BEGIN
         INSERT INTO observations_fts(observation_id, function_name, compressed_data)
         VALUES (new.id, new.function_name, new.compressed_data);

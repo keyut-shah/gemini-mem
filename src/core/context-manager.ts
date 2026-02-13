@@ -1,4 +1,4 @@
-import { MemoryDatabase, Session } from './database';
+import { MemoryDatabase, Session, Note } from './database';
 
 export interface BuildContextOptions {
   projectPath: string;
@@ -43,7 +43,18 @@ export class ContextManager {
       parts.push(`\n## Session ${date}`);
       if (session.user_prompt) parts.push(`Task: ${session.user_prompt}`);
       if (session.summary) parts.push(session.summary.trim());
-      if (session.total_observations) parts.push(`Changes captured: ${session.total_observations}`);
+
+      // Include notes (the primary capture mechanism)
+      const notes = this.db.getNotesForSession(session.id);
+      if (notes.length > 0) {
+        parts.push('\n### Key Actions');
+        notes.forEach((note: Note) => {
+          if (note.ai_response) parts.push(`- ${note.ai_response}`);
+          if (note.annotation) parts.push(`  Note: ${note.annotation}`);
+        });
+      }
+
+      if (session.total_observations) parts.push(`\nChanges captured: ${session.total_observations}`);
     });
 
     parts.push('\n--\nRespond using this context; do not ask the user to restate it.');

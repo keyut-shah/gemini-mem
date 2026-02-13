@@ -1,12 +1,7 @@
 #!/usr/bin/env node
-// @ts-nocheck
 
 import path from 'path';
-import dotenv from 'dotenv';
-
-// Load .env from the project root regardless of CWD
-const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
-dotenv.config({ path: path.join(PROJECT_ROOT, '.env') });
+import os from 'os';
 
 // MCP SDK imports
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -19,8 +14,8 @@ import { ContextManager } from '../core/context-manager';
 import { GeminiClient } from '../gemini/client';
 import { SessionSummarizer } from '../gemini/summarizer';
 
-// Initialize all modules at startup with error handling
-const dbPath = process.env.ANTIGRAVITY_MEM_DB || path.join(PROJECT_ROOT, 'data', 'antigravity-mem.db');
+// DB path: prefer env var (set by MCP config), fallback to ~/.antigravity-mem/memory.db
+const dbPath = process.env.ANTIGRAVITY_MEM_DB || path.join(os.homedir(), '.antigravity-mem', 'memory.db');
 console.error('[MCP] Initializing with DB:', dbPath);
 console.error('[MCP] Gemini model:', process.env.GEMINI_MODEL || 'default');
 

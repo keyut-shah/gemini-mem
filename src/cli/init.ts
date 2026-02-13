@@ -30,20 +30,6 @@ const MCP_CONFIG_PATH = path.join(MCP_CONFIG_DIR, 'mcp_config.json');
 const DATA_DIR = path.join(HOME, '.antigravity-mem');
 const DB_PATH = path.join(DATA_DIR, 'memory.db');
 
-// The MCP server entry point (resolved from the installed package)
-function getMcpServerPath(): string {
-  // When installed via npm, the package lives in node_modules
-  // We need the compiled JS path (dist/) for production
-  // But also support ts-node for development
-  const distPath = path.resolve(__dirname, '..', 'mcp', 'server.js');
-  const srcPath = path.resolve(__dirname, '..', 'mcp', 'server.ts');
-
-  if (fs.existsSync(distPath)) {
-    return distPath; // compiled version (npm install)
-  }
-  return srcPath; // dev version (ts-node)
-}
-
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function ask(question: string): Promise<string> {
@@ -158,19 +144,25 @@ export async function runInit() {
   log('Step 3/3: MCP Server Configuration');
   log('──────────────────────────────────');
 
-  const mcpServerPath = getMcpServerPath();
-  const isTs = mcpServerPath.endsWith('.ts');
+  // Detect how the user installed the package to generate the right MCP config.
+  // If installed globally (or npm link), use the binary directly — faster startup.
+  // Otherwise, fall back to npx which fetches from npm registry.
+  const { execSync } = require('child_process');
+  let useGlobalBinary = false;
+  try {
+    execSync('antigravity-mem --version', { stdio: 'ignore' });
+    useGlobalBinary = true;
+  } catch {
+    // Not globally installed — will use npx
+  }
 
-  // Determine command and args based on whether we're using TS or JS
-  let command: string;
-  let args: string[];
+  const command = useGlobalBinary ? 'antigravity-mem' : 'npx';
+  const args = useGlobalBinary ? ['mcp-serve'] : ['-y', 'antigravity-memory', 'mcp-serve'];
 
-  if (isTs) {
-    command = 'npx';
-    args = ['ts-node', mcpServerPath];
+  if (useGlobalBinary) {
+    info('Detected global install — MCP config will use "antigravity-mem" directly');
   } else {
-    command = 'node';
-    args = [mcpServerPath];
+    info('Using npx for MCP server launch (publish to npm first, or run: npm install -g antigravity-memory)');
   }
 
   const mcpConfig = {
@@ -203,9 +195,10 @@ export async function runInit() {
   console.log('');
   log('What happens now:');
   log('');
-  log('  1. Restart Antigravity IDE (or Gemini CLI)');
-  log('  2. Start coding — the memory tools are auto-available');
-  log('  3. Your AI assistant can now:');
+  log('  1. Run: antigravity-mem verify  (optional — checks setup)');
+  log('  2. Restart Antigravity IDE');
+  log('  3. Start coding — the memory tools are auto-available');
+  log('  4. Your AI assistant can now:');
   log('     • memory_start_session  — begin tracking a task');
   log('     • memory_save_note      — capture prompt/response pairs');
   log('     • memory_observe        — record code changes');
