@@ -1,6 +1,6 @@
 {
   "name": "antigravity-memory",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Persistent memory layer for AI coding tools — never lose context across sessions",
   "author": "Keyut Shah",
   "license": "MIT",
@@ -41,7 +41,7 @@
   "dependencies": {
     "@google/generative-ai": "^0.11.0",
     "@modelcontextprotocol/sdk": "^1.26.0",
-    "better-sqlite3": "^9.4.5",
+    "better-sqlite3": "^12.6.2",
     "commander": "^12.1.0",
     "dotenv": "^16.4.5",
     "uuid": "^11.0.3",
