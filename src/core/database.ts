@@ -182,6 +182,23 @@ export class MemoryDatabase {
     ).all(sessionId) as Observation[];
   }
 
+  getObservationCounts(sessionId: string) {
+    const obsCounts = this.db.prepare(
+      `SELECT status, COUNT(*) as count FROM observations WHERE session_id = ? GROUP BY status`
+    ).all(sessionId) as { status: ObservationStatus; count: number }[];
+    const notesCount = this.db.prepare(
+      `SELECT COUNT(*) as count FROM notes WHERE session_id = ?`
+    ).get(sessionId) as { count: number };
+    const byStatus: Record<string, number> = {};
+    obsCounts.forEach((row) => {
+      byStatus[row.status] = row.count;
+    });
+    return {
+      observations: byStatus,
+      notes: notesCount?.count ?? 0
+    };
+  }
+
   saveNote(
     sessionId: string,
     userPrompt?: string,
@@ -218,6 +235,12 @@ export class MemoryDatabase {
     return this.db.prepare(
       `SELECT * FROM sessions WHERE project_path = ? AND status != 'active' ORDER BY created_at DESC LIMIT ?`
     ).all(projectPath, limit) as Session[];
+  }
+
+  getActiveSession(projectPath: string): Session | undefined {
+    return this.db.prepare(
+      `SELECT * FROM sessions WHERE project_path = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1`
+    ).get(projectPath) as Session | undefined;
   }
 
   searchSessions(projectPath: string, query: string, limit = 5): SearchResult[] {

@@ -65,6 +65,34 @@ server.tool(
   }
 );
 
+// ─── Tool: Get or start active session ──────────────────────────────────────
+
+server.tool(
+  'memory_get_or_start_session',
+  'Return the active session for a project, or start one if none exists.',
+  {
+    projectPath: z.string().describe('Absolute path to the project directory'),
+    userPrompt: z.string().optional().describe('If creating, initial user prompt')
+  },
+  async ({ projectPath, userPrompt }) => {
+    try {
+      const existing = db.getActiveSession(projectPath);
+      if (existing) {
+        return {
+          content: [{ type: 'text' as const, text: `Active session found: ${existing.id}` }]
+        };
+      }
+      const session = db.createSession(projectPath, userPrompt);
+      return {
+        content: [{ type: 'text' as const, text: `No active session found. Started new session: ${session.id}` }]
+      };
+    } catch (err: any) {
+      console.error('[MCP] memory_get_or_start_session error:', err.message);
+      return { content: [{ type: 'text' as const, text: `Error: ${err.message}` }], isError: true };
+    }
+  }
+);
+
 // ─── Tool: Save a note (prompt + response capture) ──────────────────────────
 
 server.tool(
@@ -132,10 +160,36 @@ server.tool(
         return { content: [{ type: 'text' as const, text: `Error: session not found: ${sessionId}` }], isError: true };
       }
       const summary = await summarizer.summarize(sessionId);
+      db.endSession(sessionId, summary, 'completed');
       return { content: [{ type: 'text' as const, text: `Session summarized and saved.\n\nSummary:\n${summary}` }] };
     } catch (err: any) {
       console.error('[MCP] memory_end_session error:', err.message);
       return { content: [{ type: 'text' as const, text: `Error summarizing: ${err.message}` }], isError: true };
+    }
+  }
+);
+
+// ─── Tool: Session status ───────────────────────────────────────────────────
+
+server.tool(
+  'memory_session_status',
+  'Get the current status/counts for a session (observations per status, notes count, summary if present).',
+  {
+    sessionId: z.string().describe('The session ID to inspect')
+  },
+  async ({ sessionId }) => {
+    try {
+      const session = db.getSession(sessionId);
+      if (!session) {
+        return { content: [{ type: 'text' as const, text: `Error: session not found: ${sessionId}` }], isError: true };
+      }
+      const counts = db.getObservationCounts(sessionId);
+      const summary = session.summary || '(no summary yet)';
+      const statusText = `Session ${sessionId}\nStatus: ${session.status}\nObservations: ${JSON.stringify(counts.observations)}\nNotes: ${counts.notes}\nSummary: ${summary}`;
+      return { content: [{ type: 'text' as const, text: statusText }] };
+    } catch (err: any) {
+      console.error('[MCP] memory_session_status error:', err.message);
+      return { content: [{ type: 'text' as const, text: `Error: ${err.message}` }], isError: true };
     }
   }
 );
