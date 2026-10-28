@@ -1,9 +1,12 @@
 {
-  "name": "antigravity-memory",
+  "name": "@keyut-shah/antigravity-memory",
   "version": "0.2.0",
   "description": "Persistent memory layer for AI coding tools — never lose context across sessions",
   "author": "Keyut Shah",
   "license": "MIT",
+  "publishConfig": {
+  "registry": "https://npm.pkg.github.com"
+},
   "repository": {
     "type": "git",
     "url": "https://github.com/keyut-shah/gemini-mem.git"
